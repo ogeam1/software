@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('rider_service_areas', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+        Schema::table('orders', function (Blueprint $table) {
+            $table->string('delivery_provider')->nullable();
+            $table->string('tracking_number')->nullable();
         });
     }
 
@@ -22,6 +22,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('rider_service_areas');
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropColumn('delivery_provider');
+            $table->dropColumn('tracking_number');
+        });
     }
 };

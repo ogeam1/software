@@ -51,6 +51,21 @@
                                         <div class="row">
                                             <div class="col-lg-12">
                                                 <div class="left-area">
+                                                    <h4 class="heading">{{ __('Pickup Point') }} *</h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-12">
+                                                <select name="pickup_point_id">
+                                                    <option value="">{{ __('Select Pickup Point') }}</option>
+                                                    @foreach($pickup_points as $point)
+                                                        <option value="{{ $point->id }}">{{ $point->name }}</option> {{-- Assuming PickupPoint has a 'name' attribute --}}
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-12">
+                                                <div class="left-area">
                                                     <h4 class="heading">{{ __('Product Name') }}* </h4>
                                                     <p class="sub-heading">{{ __('(In Any Language)') }}</p>
                                                 </div>

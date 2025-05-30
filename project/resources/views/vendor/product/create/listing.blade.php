@@ -60,6 +60,20 @@
                         <input type="text" class="form-control" name="sku" placeholder="@lang('Enter Product SKU')"
                             value="{{ Str::random(3) . substr(time(), 6, 8) . Str::random(3) }}">
                     </div>
+                    <!-- Pickup Point -->
+                    <div class="input-label-wrapper">
+                        <label>@lang('Pickup Point*')</label>
+                        <div class="dropdown-container">
+                            <select class="form-control nice-select form__control" name="pickup_point_id">
+                                <option value="" disabled selected>
+                                    @lang('Select Pickup Point')
+                                </option>
+                                @foreach ($pickup_points as $point)
+                                    <option value="{{ $point->id }}">{{ $point->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                     <!-- Category -->
                     <div class="input-label-wrapper">
                         <label>@lang('Category*')</label>

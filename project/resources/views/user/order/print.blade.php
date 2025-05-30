@@ -142,9 +142,36 @@ html {
                                        @endif
                                        <h5>{{ __('Shipping Method') }}</h5>
                                        @if($order->shipping == "shipto")
-                                       <p>{{ __('Ship To Address') }}</p>
+                                           <p>{{ __('Ship To Address') }}</p>
+                                           @if($order->delivery_provider)
+                                               <p><b>{{ __('Delivery Provider') }}:</b> {{ $order->delivery_provider }}</p>
+                                           @endif
+                                           @if($order->shipping_service_name)
+                                               <p><b>{{ __('Shipping Service') }}:</b> {{ $order->shipping_service_name }}</p>
+                                           @endif
+                                           @if($order->shipping_rate_cost && $order->shipping_rate_cost > 0)
+                                               <p><b>{{ __('Shipping Cost') }}:</b> {{ \PriceHelper::showOrderCurrencyPrice($order->shipping_rate_cost * $order->currency_value, $order->currency_sign) }}</p>
+                                           @endif
+                                           @if($order->tracking_number)
+                                               <p>
+                                                   <b>{{ __('Tracking Number') }}:</b>
+                                                   @php
+                                                       $trackingUrl = '';
+                                                       if (strtoupper($order->delivery_provider) == 'DHL') {
+                                                           $trackingUrl = 'https://www.dhl.com/en/express/tracking.html?AWB=' . $order->tracking_number;
+                                                       } elseif (strtoupper($order->delivery_provider) == 'FEDEX') {
+                                                           $trackingUrl = 'https://www.fedex.com/fedextrack/?trknbr=' . $order->tracking_number;
+                                                       }
+                                                   @endphp
+                                                   @if($trackingUrl)
+                                                       <a href="{{ $trackingUrl }}" target="_blank">{{ $order->tracking_number }}</a>
+                                                   @else
+                                                       {{ $order->tracking_number }}
+                                                   @endif
+                                               </p>
+                                           @endif
                                        @else
-                                       <p>{{ __('Pick Up') }}</p>
+                                           <p>{{ __('Pick Up') }}</p>
                                        @endif
                                     </div>
                                  </div>

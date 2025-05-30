@@ -207,6 +207,14 @@ class PaypalController extends CheckoutBaseControlller
             }
             $input['tax'] = Session::get('current_tax');
 
+            // Add Selected Shipping Details to Order
+            $selectedShipping = Session::get('step1')['selected_shipping_details'] ?? null;
+            if ($selectedShipping && is_array($selectedShipping)) {
+                $input['delivery_provider'] = $selectedShipping['provider_name'];
+                $input['shipping_service_name'] = $selectedShipping['service_name'];
+                $input['shipping_rate_cost'] = $selectedShipping['rate'];
+            }
+
             $input['txnid'] = $response->getData()['transactions'][0]['related_resources'][0]['sale']['id'];
             if ($input['dp'] == 1) {
                 $input['status'] = 'completed';

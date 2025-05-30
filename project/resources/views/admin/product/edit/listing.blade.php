@@ -978,9 +978,25 @@
                                             </div>
 
                                             <input type="hidden" id="feature_photo" name="photo" value="{{ $data->photo }}" accept="image/*">
-                                            <div class="row">
-                                                <div class="col-lg-12">
-                                                    <div class="left-area">
+
+                                        <div class="row">
+                                            <div class="col-lg-12">
+                                                <div class="left-area">
+                                                    <h4 class="heading">{{ __('Pickup Point') }} *</h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-12">
+                                                <select name="pickup_point_id">
+                                                    <option value="">{{ __('Select Pickup Point') }}</option>
+                                                    @foreach($pickup_points as $point)
+                                                        <option value="{{ $point->id }}" {{ $data->pickup_point_id == $point->id ? 'selected' : '' }}>{{ $point->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-12">
+                                                <div class="left-area">
                                                         <h4 class="heading">
                                                             {{ __('Product Gallery Images') }} *
                                                         </h4>

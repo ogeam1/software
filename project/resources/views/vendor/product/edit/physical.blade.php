@@ -62,6 +62,20 @@
                         <input type="text" class="form-control" name="sku" placeholder="@lang('Enter Product SKU')"
                             value="{{ $data->sku }}">
                     </div>
+                    <!-- Pickup Point -->
+                    <div class="input-label-wrapper">
+                        <label>@lang('Pickup Point*')</label>
+                        <div class="dropdown-container">
+                            <select class="form-control nice-select form__control" name="pickup_point_id">
+                                <option value="" disabled selected>
+                                    @lang('Select Pickup Point')
+                                </option>
+                                @foreach ($pickup_points as $point)
+                                    <option value="{{ $point->id }}" {{ $data->pickup_point_id == $point->id ? 'selected' : '' }}>{{ $point->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                     <!-- Category -->
                     <div class="input-label-wrapper">
                         <label>@lang('Category*')</label>

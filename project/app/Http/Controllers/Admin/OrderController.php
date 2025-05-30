@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Classes\GeniusMailer;use App\Models\AffliateBonus;
-use App\Models\Cart;use App\Models\DeliveryRider;
+use App\Models\Cart;
 use App\Models\Generalsetting;
 use App\Models\Order;
 use App\Models\OrderTrack;
 use App\Models\Package;
 
 use App\Models\Product;
-use App\Models\Rider;
-use App\Models\RiderServiceArea;
 use App\Models\Shipping;
-
+use App\Models\ShippingProviderSetting;
 use App\Models\User;
+use App\Services\DhlApiService;
+use App\Services\FedexApiService;
 use Carbon\Carbon;
 use Datatables;
 use Illuminate\Http\Request;
@@ -77,7 +77,7 @@ class OrderController extends AdminBaseController
                 return \PriceHelper::showOrderCurrencyPrice((($data->pay_amount + $data->wallet_price) * $data->currency_value), $data->currency_sign);
             })
             ->addColumn('action', function (Order $data) {
-                $orders = '<a href="javascript:;" data-href="' . route('admin-order-edit', $data->id) . '" class="delivery" data-toggle="modal" data-target="#modal1"><i class="fas fa-dollar-sign"></i> ' . __('Delivery Status') . '</a>';
+                $orders = '<a href="javascript:;" data-href="' . route('admin-order-edit', $data->id) . '" class="delivery" data-toggle="modal" data-target="#modal1"><i class="fas fa-truck"></i> ' . __('Update Delivery Info') . '</a>';
                 return '<div class="godropdown"><button class="go-dropdown-toggle">' . __('Actions') . '<i class="fas fa-chevron-down"></i></button><div class="action-list"><a href="' . route('admin-order-show', $data->id) . '" > <i class="fas fa-eye"></i> ' . __('View Details') . '</a><a href="javascript:;" class="send" data-email="' . $data->customer_email . '" data-toggle="modal" data-target="#vendorform"><i class="fas fa-envelope"></i> ' . __('Send') . '</a><a href="javascript:;" data-href="' . route('admin-order-track', $data->id) . '" class="track" data-toggle="modal" data-target="#modal1"><i class="fas fa-truck"></i> ' . __('Track Order') . '</a>' . $orders . '</div></div>';
             })
             ->rawColumns(['id', 'action'])
@@ -144,7 +144,12 @@ class OrderController extends AdminBaseController
     public function edit($id)
     {
         $data = Order::find($id);
-        return view('admin.order.delivery', compact('data'));
+        $dhlApiService = new DhlApiService();
+        $fedexApiService = new FedexApiService();
+        $dhlSettings = ShippingProviderSetting::where('provider_name', 'DHL')->first();
+        $fedexSettings = ShippingProviderSetting::where('provider_name', 'FedEx')->first();
+
+        return view('admin.order.delivery', compact('data', 'dhlApiService', 'fedexApiService', 'dhlSettings', 'fedexSettings'));
     }
 
     //*** POST Request
@@ -152,30 +157,72 @@ class OrderController extends AdminBaseController
     {
         //--- Logic Section
         $data = Order::findOrFail($id);
-
         $input = $request->all();
-        if ($request->has('status')) {
+
+        if ($request->has('action')) {
+            $shipmentDetails = [ // Prepare dummy/actual shipment details from $data (Order object)
+                'shipper' => [
+                    'contact_name' => $this->gs->title,
+                    'company_name' => $this->gs->title,
+                    'phone_number' => $this->gs->phone,
+                    'email' => $this->gs->email,
+                    'street_address' => $this->gs->street,
+                    'city' => $this->gs->city,
+                    'state_province' => $this->gs->state,
+                    'postal_code' => $this->gs->zip,
+                    'country_code' => 'US', // Assuming US, make dynamic if needed
+                ],
+                'recipient' => [
+                    'contact_name' => $data->customer_name,
+                    'company_name' => '', // Optional
+                    'phone_number' => $data->customer_phone,
+                    'email' => $data->customer_email,
+                    'street_address' => $data->customer_address,
+                    'city' => $data->customer_city,
+                    'state_province' => $data->customer_state,
+                    'postal_code' => $data->customer_zip,
+                    'country_code' => $data->customer_country,
+                ],
+                'packages' => [
+                    ['weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10] // Example, make dynamic
+                ],
+                'service_type_code' => $data->shipping_service_name ?? null, // Or a default from settings
+            ];
+
+            $labelResponse = null;
+            $providerName = '';
+
+            if ($request->action == 'generate_dhl_label') {
+                $dhlApiService = new DhlApiService();
+                $labelResponse = $dhlApiService->createLabel($shipmentDetails);
+                $providerName = 'DHL';
+            } elseif ($request->action == 'generate_fedex_label') {
+                $fedexApiService = new FedexApiService();
+                $labelResponse = $fedexApiService->createLabel($shipmentDetails);
+                $providerName = 'FedEx';
+            }
+
+            if ($labelResponse && isset($labelResponse['status']) && $labelResponse['status'] == 'success') {
+                $data->delivery_provider = $providerName;
+                $data->tracking_number = $labelResponse['tracking_number'];
+                $data->shipping_label_url = $labelResponse['label_url'];
+                // Assuming shipping_service_name might be part of label response or already set
+                // $data->shipping_service_name = $labelResponse['service_name'] ?? $data->shipping_service_name;
+                // $data->shipping_rate_cost = $labelResponse['rate'] ?? $data->shipping_rate_cost; // If rate is part of label response
+                $data->status = 'processing'; // Or your preferred status after label generation
+                $data->save();
+                return redirect()->back()->with('success', __('Shipping label generated successfully. Tracking Number: ') . $labelResponse['tracking_number']);
+            } else {
+                return redirect()->back()->with('error', __('Failed to generate shipping label: ') . ($labelResponse['message'] ?? 'Unknown error'));
+            }
+        } else if ($request->has('status')) { // Existing status update logic
             if ($data->status == "completed") {
                 $input['status'] = "completed";
                 $data->update($input);
                 $msg = __('Status Updated Successfully.');
                 return response()->json($msg);
             } else {
-                if ($input['status'] == "completed") {
-
-                    if ($data->vendor_ids) {
-                        $vendor_ids = json_decode($data->vendor_ids, true);
-
-                        foreach ($vendor_ids as $vendor) {
-                            $deliveryRider = DeliveryRider::where('order_id', $data->id)->where('vendor_id', $vendor)->first();
-                            if ($deliveryRider) {
-                                $rider = Rider::findOrFail($deliveryRider->rider_id);
-                                $service_area = RiderServiceArea::findOrFail($deliveryRider->service_area_id);
-                                $rider->balance += $service_area->price;
-                                $rider->update();
-                            }
-                        }
-                    }
+                 if ($input['status'] == "completed") {
 
                     foreach ($data->vendororders as $vorder) {
                         $uprice = User::find($vorder->user_id);
@@ -298,7 +345,7 @@ class OrderController extends AdminBaseController
                     $mailer->sendCustomMail($maildata);
                 }
 
-                $data->update($input);
+                $data->update($input); // This will save status and potentially other fields if not handled by label generation
 
                 if ($request->track_text) {
                     $title = ucwords($request->status);
@@ -309,22 +356,21 @@ class OrderController extends AdminBaseController
                         $ck->text = $request->track_text;
                         $ck->update();
                     } else {
-                        $data = new OrderTrack;
-                        $data->order_id = $id;
-                        $data->title = $title;
-                        $data->text = $request->track_text;
-                        $data->save();
+                        $track = new OrderTrack; // Renamed from $data to $track to avoid conflict
+                        $track->order_id = $id;
+                        $track->title = $title;
+                        $track->text = $request->track_text;
+                        $track->save();
                     }
                 }
-
                 $msg = __('Status Updated Successfully.');
                 return response()->json($msg);
             }
+        } else { // Manual update of delivery info if no action or status is present
+             $data->update($input);
+             $msg = __('Delivery Info Updated Successfully.');
+             return redirect()->back()->with('success', $msg);
         }
-
-        $data->update($input);
-        $msg = __('Data Updated Successfully.');
-        return redirect()->back()->with('success', $msg);
     }
 
     public function product_submit(Request $request)
@@ -692,3 +738,5 @@ class OrderController extends AdminBaseController
         return redirect()->back()->with('success', __('Successfully Deleted From The Cart.'));
     }
 }
+
+[end of project/app/Http/Controllers/Admin/OrderController.php]

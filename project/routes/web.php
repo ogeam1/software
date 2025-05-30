@@ -966,6 +966,13 @@ Route::prefix('admin')->group(function () {
     Route::get('/activation', 'Admin\DashboardController@activation')->name('admin-activation-form');
     Route::post('/activation', 'Admin\DashboardController@activation_submit')->name('admin-activate-purchase');
     Route::get('/clear/backup', 'Admin\DashboardController@clear_bkup')->name('admin-clear-backup');
+
+    //------------ ADMIN SHIPPING PROVIDER SETTINGS SECTION ------------
+    Route::get('shipping-providers', [\App\Http\Controllers\Admin\ShippingProviderController::class, 'index'])->name('shipping.providers.index');
+    Route::get('shipping-providers/{id}/edit', [\App\Http\Controllers\Admin\ShippingProviderController::class, 'edit'])->name('shipping.providers.edit');
+    Route::put('shipping-providers/{id}', [\App\Http\Controllers\Admin\ShippingProviderController::class, 'update'])->name('shipping.providers.update');
+    //------------ ADMIN SHIPPING PROVIDER SETTINGS SECTION ENDS ------------
+
 });
 
 // ************************************ ADMIN SECTION ENDS**********************************************

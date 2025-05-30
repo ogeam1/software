@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Childcategory;
 use App\Models\Currency;
 use App\Models\Gallery;
+use App\Models\PickupPoint;
 use App\Models\Product;
 use App\Models\Subcategory;
 use Datatables;use DB;
@@ -32,7 +33,7 @@ class ProductController extends AdminBaseController
             ->editColumn('name', function (Product $data) {
                 $name = mb_strlen($data->name, 'UTF-8') > 50 ? mb_substr($data->name, 0, 50, 'UTF-8') . '...' : $data->name;
                 $id = '<small>' . __("ID") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . sprintf("%'.08d", $data->id) . '</a></small>';
-                $id3 = $data->type == 'Physical' ? '<small class="ml-2"> ' . __("SKU") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . $data->sku . '</a>' : '';
+                $id3 = $data->type == 'Physical' ? '<small class="ml-2"> ' . __("SKU") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . $data->sku . '</a></small>' : '';
                 return $name . '<br>' . $id . $id3 . $data->checkVendor();
             })
             ->editColumn('price', function (Product $data) {
@@ -78,7 +79,7 @@ class ProductController extends AdminBaseController
             ->editColumn('name', function (Product $data) {
                 $name = mb_strlen($data->name, 'UTF-8') > 50 ? mb_substr($data->name, 0, 50, 'UTF-8') . '...' : $data->name;
                 $id = '<small>' . __("ID") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . sprintf("%'.08d", $data->id) . '</a></small>';
-                $id3 = $data->type == 'Physical' ? '<small class="ml-2"> ' . __("SKU") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . $data->sku . '</a>' : '';
+                $id3 = $data->type == 'Physical' ? '<small class="ml-2"> ' . __("SKU") . ': <a href="' . route('front.product', $data->slug) . '" target="_blank">' . $data->sku . '</a></small>' : '';
                 return $name . '<br>' . $id . $id3 . $data->checkVendor();
             })
             ->editColumn('price', function (Product $data) {
@@ -138,14 +139,15 @@ class ProductController extends AdminBaseController
     {
         $cats = Category::all();
         $sign = $this->curr;
+        $pickup_points = \App\Models\PickupPoint::all();
         if ($slug == 'physical') {
-            return view('admin.product.create.physical', compact('cats', 'sign'));
+            return view('admin.product.create.physical', compact('cats', 'sign', 'pickup_points'));
         } else if ($slug == 'digital') {
-            return view('admin.product.create.digital', compact('cats', 'sign'));
+            return view('admin.product.create.digital', compact('cats', 'sign', 'pickup_points'));
         } else if (($slug == 'license')) {
-            return view('admin.product.create.license', compact('cats', 'sign'));
+            return view('admin.product.create.license', compact('cats', 'sign', 'pickup_points'));
         } else if (($slug == 'listing')) {
-            return view('admin.product.create.listing', compact('cats', 'sign'));
+            return view('admin.product.create.listing', compact('cats', 'sign', 'pickup_points'));
 
         }
     }
@@ -213,6 +215,7 @@ class ProductController extends AdminBaseController
         $rules = [
             'photo' => 'required',
             'file' => 'mimes:zip',
+            'pickup_point_id' => 'nullable|exists:pickup_points,id'
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -354,6 +357,7 @@ class ProductController extends AdminBaseController
 
         $input['price'] = ($input['price'] / $sign->value);
         $input['previous_price'] = ($input['previous_price'] / $sign->value);
+        $input['pickup_point_id'] = $request->pickup_point_id;
         if ($request->cross_products) {
             $input['cross_products'] = implode(',', $request->cross_products);
         }
@@ -488,6 +492,7 @@ class ProductController extends AdminBaseController
         //--- Validation Section
         $rules = [
             'csvfile' => 'required|mimes:csv,txt',
+            'pickup_point_id' => 'nullable|exists:pickup_points,id'
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -631,15 +636,16 @@ class ProductController extends AdminBaseController
         $cats = Category::all();
         $data = Product::findOrFail($id);
         $sign = $this->curr;
+        $pickup_points = \App\Models\PickupPoint::all();
 
         if ($data->type == 'Digital') {
-            return view('admin.product.edit.digital', compact('cats', 'data', 'sign'));
+            return view('admin.product.edit.digital', compact('cats', 'data', 'sign', 'pickup_points'));
         } elseif ($data->type == 'License') {
-            return view('admin.product.edit.license', compact('cats', 'data', 'sign'));
+            return view('admin.product.edit.license', compact('cats', 'data', 'sign', 'pickup_points'));
         } elseif ($data->type == 'Listing') {
-            return view('admin.product.edit.listing', compact('cats', 'data', 'sign'));
+            return view('admin.product.edit.listing', compact('cats', 'data', 'sign', 'pickup_points'));
         } else {
-            return view('admin.product.edit.physical', compact('cats', 'data', 'sign'));
+            return view('admin.product.edit.physical', compact('cats', 'data', 'sign', 'pickup_points'));
         }
 
     }
@@ -651,6 +657,7 @@ class ProductController extends AdminBaseController
         //--- Validation Section
         $rules = [
             'file' => 'mimes:zip',
+            'pickup_point_id' => 'nullable|exists:pickup_points,id'
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -664,6 +671,7 @@ class ProductController extends AdminBaseController
         $data = Product::findOrFail($id);
         $sign = $this->curr;
         $input = $request->all();
+        $input['pickup_point_id'] = $request->pickup_point_id;
 
         //Check Types
         if ($request->type_check == 1) {

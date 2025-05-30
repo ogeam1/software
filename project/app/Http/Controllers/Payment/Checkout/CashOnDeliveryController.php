@@ -114,6 +114,17 @@ class CashOnDeliveryController extends CheckoutBaseControlller
         }
         $input['tax'] = Session::get('current_tax');
 
+        // Add Selected Shipping Details to Order
+        $selectedShipping = Session::get('step1')['selected_shipping_details'] ?? null;
+        if ($selectedShipping && is_array($selectedShipping)) {
+            $input['delivery_provider'] = $selectedShipping['provider_name']; // Assuming 'provider_name' is the key
+            $input['shipping_service_name'] = $selectedShipping['service_name'];
+            $input['shipping_rate_cost'] = $selectedShipping['rate'];
+            // Optionally update shipping_title if it's used for display
+            // $input['shipping_title'] = $selectedShipping['provider_name'] . ' - ' . $selectedShipping['service_name'];
+        }
+
+
         if (Session::has('affilate')) {
             $val = $request->total / $this->curr->value;
             $val = $val / 100;

@@ -175,6 +175,13 @@ class PaytmController extends CheckoutBaseControlller
                 }
                 $input['tax'] = Session::get('current_tax');
 
+                // Add Selected Shipping Details to Order
+                $selectedShipping = Session::get('step1')['selected_shipping_details'] ?? null;
+                if ($selectedShipping && is_array($selectedShipping) && isset($selectedShipping['provider_name'])) {
+                    $input['delivery_provider'] = $selectedShipping['provider_name'];
+                    $input['shipping_service_name'] = $selectedShipping['service_name'];
+                    $input['shipping_rate_cost'] = $selectedShipping['rate'];
+                }
 
                 if ($input['dp'] == 1) {
                     $input['status'] = 'completed';

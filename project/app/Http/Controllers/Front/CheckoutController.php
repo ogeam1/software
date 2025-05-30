@@ -6,6 +6,8 @@ use App\Models\Cart;use App\Models\City;
 use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\State;
+use App\Services\DhlApiService;
+use App\Services\FedexApiService;
 use Auth;
 use DB;
 use Illuminate\Http\Request;
@@ -50,6 +52,38 @@ class CheckoutController extends FrontBaseController
         }
     }
 
+    private function getApiShippingOptions()
+    {
+        $dhlApiService = new DhlApiService();
+        $fedexApiService = new FedexApiService();
+        $packageDetails = ['weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10]; // Dummy
+        $originZip = '90210'; // Dummy
+
+        // Attempt to get destination ZIP from session if available, else use dummy
+        $destinationZip = '10001'; // Dummy
+        if (Session::has('step1')) {
+            $step1Data = Session::get('step1');
+            if (isset($step1Data['zip'])) {
+                $destinationZip = $step1Data['zip'];
+            } elseif(isset($step1Data['shipping_zip'])) {
+                 $destinationZip = $step1Data['shipping_zip'];
+            }
+        }
+
+
+        $dhlRates = $dhlApiService->getRates($packageDetails, $originZip, $destinationZip);
+        $fedexRates = $fedexApiService->getRates($packageDetails, $originZip, $destinationZip);
+
+        $apiShippingOptions = [];
+        foreach ($dhlRates as $rate) {
+            $apiShippingOptions[] = array_merge($rate, ['provider_name' => 'DHL']);
+        }
+        foreach ($fedexRates as $rate) {
+            $apiShippingOptions[] = array_merge($rate, ['provider_name' => 'FedEx']);
+        }
+        return $apiShippingOptions;
+    }
+
     public function checkout()
     {
 
@@ -64,6 +98,8 @@ class CheckoutController extends FrontBaseController
         $oldCart = Session::get('cart');
         $cart = new Cart($oldCart);
         $products = $cart->items;
+
+        $apiShippingOptions = $this->getApiShippingOptions();
       
         if (Auth::check()) {
 
@@ -103,7 +139,7 @@ class CheckoutController extends FrontBaseController
                 $total = str_replace(',', '', str_replace($curr->sign, '', $total));
             }
 
-            return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id]);
+            return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'apiShippingOptions' => $apiShippingOptions]);
         } else {
 
             if ($this->gs->guest_checkout == 1) {
@@ -146,11 +182,11 @@ class CheckoutController extends FrontBaseController
                     if ($prod['item']['type'] != 'Physical') {
                         if (!Auth::check()) {
                             $ck = 1;
-                            return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id]);
+                            return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'apiShippingOptions' => $apiShippingOptions]);
                         }
                     }
                 }
-                return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id]);
+                return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'apiShippingOptions' => $apiShippingOptions]);
             }
 
             // If guest checkout is Deactivated then display pop up form with proper error message
@@ -188,7 +224,7 @@ class CheckoutController extends FrontBaseController
                     $total = $total;
                 }
                 $ck = 1;
-                return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,  'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id]);
+                return view('frontend.checkout.step1', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,  'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'apiShippingOptions' => $apiShippingOptions]);
             }
         }
     }
@@ -212,6 +248,8 @@ class CheckoutController extends FrontBaseController
         $oldCart = Session::get('cart');
         $cart = new Cart($oldCart);
         $products = $cart->items;
+        $apiShippingOptions = $this->getApiShippingOptions();
+
 
         if (Auth::check()) {
 
@@ -251,7 +289,7 @@ class CheckoutController extends FrontBaseController
                 $total = str_replace(',', '', str_replace($curr->sign, '', $total));
             }
 
-            return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1]);
+            return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
         } else {
 
             if ($this->gs->guest_checkout == 1) {
@@ -294,11 +332,11 @@ class CheckoutController extends FrontBaseController
                     if ($prod['item']['type'] != 'Physical') {
                         if (!Auth::check()) {
                             $ck = 1;
-                            return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id]);
+                            return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'apiShippingOptions' => $apiShippingOptions]);
                         }
                     }
                 }
-                return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1]);
+                return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
             }
 
             // If guest checkout is Deactivated then display pop up form with proper error message
@@ -336,22 +374,19 @@ class CheckoutController extends FrontBaseController
                     $total = $total;
                 }
                 $ck = 1;
-                return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1]);
+                return view('frontend.checkout.step2', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty,'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
             }
         }
     }
 
 
-
-
-
-
-
-
-
     public function checkoutStep1(Request $request)
     {
         $step1 = $request->all();
+        if ($request->has('shipping_option')) {
+            $selectedShipping = json_decode($request->shipping_option, true);
+            $step1['selected_shipping_details'] = $selectedShipping;
+        }
         Session::put('step1', $step1);
         return redirect()->route('front.checkout.step2');
     }
@@ -359,6 +394,10 @@ class CheckoutController extends FrontBaseController
     public function checkoutStep2Submit(Request $request)
     {
         $step2 = $request->all();
+        if ($request->has('shipping_option')) { // If shipping options are on step 2
+            $selectedShipping = json_decode($request->shipping_option, true);
+            $step2['selected_shipping_details'] = $selectedShipping;
+        }
         Session::put('step2', $step2);
         return redirect()->route('front.checkout.step3');
     }
@@ -390,6 +429,8 @@ class CheckoutController extends FrontBaseController
         $products = $cart->items;
         $paystack = PaymentGateway::whereKeyword('paystack')->first();
         $paystackData = $paystack->convertAutoData();
+        $apiShippingOptions = $this->getApiShippingOptions();
+
 
         if (Auth::check()) {
 
@@ -429,7 +470,7 @@ class CheckoutController extends FrontBaseController
                 $total = str_replace(',', '', str_replace($curr->sign, '', $total));
             }
 
-            return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step1' => $step1, 'step2' => $step2]);
+            return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step1' => $step1, 'step2' => $step2, 'apiShippingOptions' => $apiShippingOptions]);
         } else {
 
             if ($this->gs->guest_checkout == 1) {
@@ -472,11 +513,11 @@ class CheckoutController extends FrontBaseController
                     if ($prod['item']['type'] != 'Physical') {
                         if (!Auth::check()) {
                             $ck = 1;
-                            return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1]);
+                            return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
                         }
                     }
                 }
-                return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1]);
+                return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
             }
 
             // If guest checkout is Deactivated then display pop up form with proper error message
@@ -514,7 +555,7 @@ class CheckoutController extends FrontBaseController
                     $total = $total;
                 }
                 $ck = 1;
-                return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1]);
+                return view('frontend.checkout.step3', ['products' => $cart->items, 'totalPrice' => $total, 'pickups' => $pickups, 'totalQty' => $cart->totalQty, 'gateways' => $gateways, 'shipping_cost' => 0, 'digital' => $dp, 'curr' => $curr, 'shipping_data' => $shipping_data, 'package_data' => $package_data, 'vendor_shipping_id' => $vendor_shipping_id, 'vendor_packing_id' => $vendor_packing_id, 'paystack' => $paystackData, 'step2' => $step2, 'step1' => $step1, 'apiShippingOptions' => $apiShippingOptions]);
             }
         }
     }

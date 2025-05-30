@@ -9,6 +9,7 @@ use App\Models\Childcategory;
 use App\Models\Currency;
 use App\Models\Gallery;
 use App\Models\Generalsetting;
+use App\Models\PickupPoint;
 use App\Models\Product;
 use App\Models\Subcategory;
 use DB;
@@ -53,27 +54,28 @@ class ProductController extends VendorBaseController
 
         $cats = Category::all();
         $sign = $this->curr;
+        $pickup_points = \App\Models\PickupPoint::all();
         if ($slug == 'physical') {
             if ($this->gs->physical == 1) {
-                return view('vendor.product.create.physical', compact('cats', 'sign'));
+                return view('vendor.product.create.physical', compact('cats', 'sign', 'pickup_points'));
             } else {
                 return back();
             }
         } else if ($slug == 'digital') {
             if ($this->gs->digital == 1) {
-                return view('vendor.product.create.digital', compact('cats', 'sign'));
+                return view('vendor.product.create.digital', compact('cats', 'sign', 'pickup_points'));
             } else {
                 return back();
             }
         } else if (($slug == 'license')) {
             if ($this->gs->license == 1) {
-                return view('vendor.product.create.license', compact('cats', 'sign'));
+                return view('vendor.product.create.license', compact('cats', 'sign', 'pickup_points'));
             } else {
                 return back();
             }
         } else if (($slug == 'listing')) {
             if ($this->gs->listing == 1) {
-                return view('vendor.product.create.listing', compact('cats', 'sign'));
+                return view('vendor.product.create.listing', compact('cats', 'sign', 'pickup_points'));
             } else {
                 return back();
             }
@@ -321,6 +323,7 @@ class ProductController extends VendorBaseController
             $rules = [
                 'photo' => 'required',
                 'file' => 'mimes:zip',
+                'pickup_point_id' => 'nullable|exists:pickup_points,id'
             ];
             $request->validate($rules);
 
@@ -328,6 +331,7 @@ class ProductController extends VendorBaseController
             $data = new Product;
             $sign = $this->curr;
             $input = $request->all();
+            $input['pickup_point_id'] = $request->pickup_point_id;
             // Check File
             if ($file = $request->file('file')) {
                 $extensions = ['zip'];
@@ -599,15 +603,16 @@ class ProductController extends VendorBaseController
         $cats = Category::all();
         $data = Product::findOrFail($id);
         $sign = $this->curr;
+        $pickup_points = \App\Models\PickupPoint::all();
 
         if ($data->type == 'Digital') {
-            return view('vendor.product.edit.digital', compact('cats', 'data', 'sign'));
+            return view('vendor.product.edit.digital', compact('cats', 'data', 'sign', 'pickup_points'));
         } elseif ($data->type == 'License') {
-            return view('vendor.product.edit.license', compact('cats', 'data', 'sign'));
+            return view('vendor.product.edit.license', compact('cats', 'data', 'sign', 'pickup_points'));
         } elseif ($data->type == 'Listing') {
-            return view('vendor.product.edit.listing', compact('cats', 'data', 'sign'));
+            return view('vendor.product.edit.listing', compact('cats', 'data', 'sign', 'pickup_points'));
         } else {
-            return view('vendor.product.edit.physical', compact('cats', 'data', 'sign'));
+            return view('vendor.product.edit.physical', compact('cats', 'data', 'sign', 'pickup_points'));
         }
     }
 
@@ -634,6 +639,7 @@ class ProductController extends VendorBaseController
         //--- Validation Section
         $rules = [
             'file' => 'mimes:zip',
+            'pickup_point_id' => 'nullable|exists:pickup_points,id'
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -647,6 +653,7 @@ class ProductController extends VendorBaseController
         $data = Product::findOrFail($id);
         $sign = $this->curr;
         $input = $request->all();
+        $input['pickup_point_id'] = $request->pickup_point_id;
 
         //Check Types
         if ($request->type_check == 1) {
